@@ -126,59 +126,27 @@ const MarketTracker = () => {
   const fetchNews = async (asset) => {
     setNewsLoading(true);
     setSelectedAsset(asset);
-    
+
     try {
       const searchQuery = asset.name.replace(' Inc.', '').replace(' Corp.', '');
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          messages: [
-            { 
-              role: 'user', 
-              content: `Search for the latest 5 news articles about ${searchQuery} (${asset.symbol}). Return ONLY a JSON array with this structure, no other text:
-[{"title": "headline", "source": "source name", "time": "time ago", "summary": "brief summary"}]` 
-            }
-          ],
-          tools: [
-            {
-              "type": "web_search_20250305",
-              "name": "web_search"
-            }
-          ]
-        })
-      });
+      const response = await fetch(`/api/news?query=${encodeURIComponent(searchQuery + ' ' + asset.symbol.replace('-USD', ''))}`);
 
-      const data = await response.json();
-      const textContent = data.content
-        .filter(item => item.type === 'text')
-        .map(item => item.text)
-        .join('');
-      
-      // Extract JSON from response
-      const jsonMatch = textContent.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        const newsData = JSON.parse(jsonMatch[0]);
-        setNews(newsData);
+      if (!response.ok) throw new Error('News API failed');
+
+      const articles = await response.json();
+
+      if (Array.isArray(articles) && articles.length > 0) {
+        setNews(articles);
       } else {
-        // Fallback mock news
-        setNews([
-          { title: `${asset.name} announces Q4 earnings beat expectations`, source: 'Financial Times', time: '2 hours ago', summary: 'Strong quarterly results drive investor confidence' },
-          { title: `Analysts upgrade ${asset.name} stock rating`, source: 'Bloomberg', time: '5 hours ago', summary: 'Major financial institutions increase price targets' },
-          { title: `${asset.name} expands market presence in Asia`, source: 'Reuters', time: '1 day ago', summary: 'Strategic partnerships announced in key markets' }
-        ]);
+        throw new Error('No articles returned');
       }
     } catch (error) {
       console.error('Error fetching news:', error);
-      // Fallback mock news
+      // Fallback with placeholder links
       setNews([
-        { title: `${asset.name} reports strong market performance`, source: 'Financial Times', time: '2 hours ago', summary: 'Market analysts remain optimistic about growth prospects' },
-        { title: `${asset.name} price analysis and forecast`, source: 'Bloomberg', time: '5 hours ago', summary: 'Technical indicators suggest continued momentum' },
-        { title: `What investors need to know about ${asset.name}`, source: 'Reuters', time: '1 day ago', summary: 'Key factors driving recent price movements' }
+        { title: `Search for latest ${asset.name} news`, source: 'Google News', time: 'Now', summary: 'Click to search for the latest news about this asset.', url: `https://news.google.com/search?q=${encodeURIComponent(asset.name)}` },
+        { title: `${asset.symbol.replace('-USD', '')} on Yahoo Finance`, source: 'Yahoo Finance', time: 'Now', summary: 'View latest news and analysis on Yahoo Finance.', url: `https://finance.yahoo.com/quote/${asset.symbol}` },
+        { title: `${asset.name} - Latest Headlines`, source: 'Reuters', time: 'Now', summary: 'Search Reuters for the latest coverage.', url: `https://www.reuters.com/search/news?blob=${encodeURIComponent(asset.name)}` }
       ]);
     }
     setNewsLoading(false);
@@ -397,8 +365,14 @@ const MarketTracker = () => {
                     News for <span className="text-white font-semibold">{selectedAsset.name}</span>
                   </div>
                   {news.map((article, idx) => (
-                    <div key={idx} className="pb-4 border-b border-slate-700 last:border-0">
-                      <h3 className="font-semibold text-sm mb-1 leading-snug hover:text-blue-400 transition-colors">
+                    <a
+                      key={idx}
+                      href={article.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block pb-4 border-b border-slate-700 last:border-0 hover:bg-slate-750 rounded-lg transition-colors group"
+                    >
+                      <h3 className="font-semibold text-sm mb-1 leading-snug text-white group-hover:text-blue-400 transition-colors">
                         {article.title}
                       </h3>
                       <p className="text-xs text-slate-400 mb-2">{article.summary}</p>
@@ -407,7 +381,7 @@ const MarketTracker = () => {
                         <span>•</span>
                         <span>{article.time}</span>
                       </div>
-                    </div>
+                    </a>
                   ))}
                 </div>
               )}
