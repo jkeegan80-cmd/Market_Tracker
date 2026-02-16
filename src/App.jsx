@@ -33,16 +33,8 @@ const MarketTracker = () => {
       const priceData = await Promise.all(
         watchlist.map(async (asset) => {
           try {
-            // Using Yahoo Finance API - all prices are in USD
-            const response = await fetch(
-              `https://query1.finance.yahoo.com/v8/finance/chart/${asset.symbol}?interval=1d&range=1d`,
-              { 
-                method: 'GET',
-                headers: {
-                  'User-Agent': 'Mozilla/5.0'
-                }
-              }
-            );
+            // Use our server-side proxy to avoid CORS issues
+            const response = await fetch(`/api/proxy?symbol=${asset.symbol}`);
             
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
